@@ -68,7 +68,7 @@ int main(int argc, char* argv[]) {
 
         lamp_pipeline_layout = pipeline_layout::make();
         lamp_pipeline_layout->add(lamp_descriptor);
-        lamp_pipeline_layout->add({ VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(r32) * 8 });
+        lamp_pipeline_layout->add_range({ VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(r32) * 8 });
 
         if (!lamp_pipeline_layout->create(device))
             return error::create_failed;
@@ -77,7 +77,7 @@ int main(int argc, char* argv[]) {
         lamp_pipeline->set_auto_bind(true);
         lamp_pipeline->set_auto_size(true);
 
-        lamp_descriptor_set = lamp_descriptor->allocate_descriptor_set();
+        lamp_descriptor_set = lamp_descriptor->allocate_set();
 
         lamp_pipeline->on_process = [&](VkCommandBuffer cmd_buf) {
 
@@ -90,10 +90,10 @@ int main(int argc, char* argv[]) {
             pc_resolution[1] = viewport.height - viewport.y;
             vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(r32) * 0, sizeof(r32) * 2, pc_resolution);
 
-            r32 pc_time_color[2];
-            pc_time_color[0] = to_r32(now());
-            pc_time_color[1] = lamp_depth;
-            vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(r32) * 2, sizeof(r32) * 2, pc_time_color);
+            r32 pc_time_depth[2];
+            pc_time_depth[0] = to_r32(frame.get_running_time());
+            pc_time_depth[1] = lamp_depth;
+            vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(r32) * 2, sizeof(r32) * 2, pc_time_depth);
 
             r32 pc_color[4];
             pc_color[0] = lamp_color.r;
@@ -105,26 +105,23 @@ int main(int argc, char* argv[]) {
             vkCmdDraw(cmd_buf, 3, 1, 0, 0);
         };
 
-        lamp_pipeline->set_render_pass(render_pass->get());
-        if (!lamp_pipeline->create())
+        if (!lamp_pipeline->create(render_pass->get()))
             return error::create_failed;
 
-        render_pass->get_subpass()->add(lamp_pipeline);
+        render_pass->add(lamp_pipeline);
     }
 
-    gui gui;
-    gui.setup(window.get());
-    if (!gui.initialize(graphics_pipeline::make(device), frame_count))
+    gui gui(window.get());
+    if (!gui.create(device, frame_count))
         return error::create_failed;
 
     {
         auto gui_pipeline = gui.get_pipeline();
 
-        gui_pipeline->set_render_pass(render_pass->get());
-        if (!gui_pipeline->create())
+        if (!gui_pipeline->create(render_pass->get()))
             return error::create_failed;
 
-        render_pass->get_subpass()->add(gui_pipeline);
+        render_pass->add(gui_pipeline);
     }
 
     auto fonts = texture::make();
@@ -135,7 +132,7 @@ int main(int argc, char* argv[]) {
     staging.add(fonts);
 
     block block;
-    if (!block.create(device, frame_count, device->get_graphics_queue().family))
+    if (!block.create(device, frame_count, device->graphics_queue().family))
         return false;
 
     block.add_command([&](VkCommandBuffer cmd_buf) {
@@ -153,9 +150,9 @@ int main(int argc, char* argv[]) {
             return;
 
         ImGui::SetNextWindowPos(ImVec2(400, 100), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(400, 120), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(200, 150), ImGuiCond_FirstUseEver);
 
-        ImGui::Begin(config.app, &show_editor);
+        ImGui::Begin(config.app, &show_editor, ImGuiWindowFlags_NoResize);
 
         auto lamp_active = lamp_pipeline->is_active();
         if (ImGui::Checkbox("active", &lamp_active))
@@ -163,8 +160,13 @@ int main(int argc, char* argv[]) {
 
         ImGui::Spacing();
 
-        ImGui::DragFloat("depth", &lamp_depth, 0.0001f, 0.01f, 1.0f);
+        ImGui::DragFloat("depth", &lamp_depth, 0.0001f, 0.01f, 1.f);
         ImGui::ColorEdit4("color", (r32*)&lamp_color);
+
+        ImGui::Separator();
+
+        ImGui::Text("%s %s", _liblava_, to_string(_version).c_str());
+        ImGui::Text("%.f fps", ImGui::GetIO().Framerate);
 
         ImGui::End();
     };
@@ -217,14 +219,14 @@ int main(int argc, char* argv[]) {
 
     frame.add_run_end([&]() {
 
-        lamp_descriptor->free_descriptor_set(lamp_descriptor_set);
+        lamp_descriptor->free_set(lamp_descriptor_set);
         lamp_descriptor->destroy();
 
-        lamp_pipeline = nullptr;
+        lamp_pipeline->destroy();
         lamp_pipeline_layout->destroy();
 
         input.remove(&gui);
-        gui.shutdown();
+        gui.destroy();
 
         fonts->destroy();
 
