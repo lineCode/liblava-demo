@@ -15,3 +15,11 @@ add_executable(lava-lamp
         )
 
 target_link_libraries(lava-lamp lava::tool)
+
+message("> lava-triangle")
+
+add_executable(lava-triangle 
+        ${CMAKE_CURRENT_SOURCE_DIR}/triangle/triangle.cpp
+        )
+
+target_link_libraries(lava-triangle lava::tool)
