@@ -8,7 +8,7 @@ project(liblava-demo VERSION 0.4.3 LANGUAGES C CXX)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/liblava ${CMAKE_CURRENT_BINARY_DIR}/liblava)
 
-message(">> lava-lamp")
+message("> lava-lamp")
 
 add_executable(lava-lamp 
         ${CMAKE_CURRENT_SOURCE_DIR}/lamp/lamp.cpp
