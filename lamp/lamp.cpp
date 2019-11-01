@@ -91,7 +91,7 @@ int main(int argc, char* argv[]) {
             vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(r32) * 0, sizeof(r32) * 2, pc_resolution);
 
             r32 pc_time_depth[2];
-            pc_time_depth[0] = to_r32(frame.get_running_time());
+            pc_time_depth[0] = to_r32(to_sec(frame.get_running_time()));
             pc_time_depth[1] = lamp_depth;
             vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(r32) * 2, sizeof(r32) * 2, pc_time_depth);
 
@@ -175,10 +175,10 @@ int main(int argc, char* argv[]) {
 
     input.key.listeners.add([&](key_event::ref event) {
 
-        if (event.key == key::tab && event.action == action::press)
+        if (event.pressed(key::tab))
             show_editor = !show_editor;
 
-        if (event.key == key::escape && event.action == action::press)
+        if (event.pressed(key::escape))
             frame.shut_down();
     });
 

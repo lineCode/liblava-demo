@@ -155,10 +155,10 @@ int main(int argc, char* argv[]) {
 
     input.key.listeners.add([&](key_event::ref event) {
 
-        if (event.key == key::tab && event.action == action::press)
+        if (event.pressed(key::tab))
             show_editor = !show_editor;
 
-        if (event.key == key::escape && event.action == action::press)
+        if (event.pressed(key::escape))
             frame.shut_down();
     });
 
