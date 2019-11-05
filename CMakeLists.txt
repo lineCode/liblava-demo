@@ -23,3 +23,11 @@ add_executable(lava-triangle
         )
 
 target_link_libraries(lava-triangle lava::tool)
+
+message("> lava-spawn")
+
+add_executable(lava-spawn 
+        ${CMAKE_CURRENT_SOURCE_DIR}/spawn/spawn.cpp
+        )
+
+target_link_libraries(lava-spawn lava::tool)

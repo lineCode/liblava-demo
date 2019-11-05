@@ -7,6 +7,7 @@ Demonstration projects for <a href="https://git.io/liblava">liblava</a>
 
 * [lava triangle](https://github.com/liblava/liblava-demo/blob/master/triangle/triangle.cpp) - classic colored mesh
 * [lava lamp](https://github.com/liblava/liblava-demo/blob/master/lamp/lamp.cpp) - push constants to shader
+* [lava spawn](https://github.com/liblava/liblava-demo/blob/master/spawn/spawn.cpp) - uniform buffer camera
 
 ## build
 
