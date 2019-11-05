@@ -48,13 +48,13 @@ int main(int argc, char* argv[]) {
     pipeline_layout::ptr lamp_pipeline_layout;
     
     descriptor::ptr lamp_descriptor;
-    VkDescriptorSet lamp_descriptor_set = {};
+    VkDescriptorSet lamp_descriptor_set;
 
     {
-        if (!lamp_pipeline->add_shader_stage("lamp/vertex.spirv", VK_SHADER_STAGE_VERTEX_BIT))
+        if (!lamp_pipeline->add_shader("lamp/vertex.spirv", VK_SHADER_STAGE_VERTEX_BIT))
             return error::create_failed;
 
-        if (!lamp_pipeline->add_shader_stage("lamp/fragment.spirv", VK_SHADER_STAGE_FRAGMENT_BIT))
+        if (!lamp_pipeline->add_shader("lamp/fragment.spirv", VK_SHADER_STAGE_FRAGMENT_BIT))
             return error::create_failed;
 
         lamp_pipeline->add_color_blend_attachment();
@@ -74,35 +74,34 @@ int main(int argc, char* argv[]) {
             return error::create_failed;
 
         lamp_pipeline->set_layout(lamp_pipeline_layout);
-        lamp_pipeline->set_auto_bind(true);
         lamp_pipeline->set_auto_size(true);
 
-        lamp_descriptor_set = lamp_descriptor->allocate_set();
+        lamp_descriptor_set = lamp_descriptor->allocate();
 
         lamp_pipeline->on_process = [&](VkCommandBuffer cmd_buf) {
 
-            lamp_pipeline_layout->bind_descriptor_set(cmd_buf, lamp_descriptor_set);
+            lamp_pipeline_layout->bind(cmd_buf, lamp_descriptor_set);
 
             auto viewport = lamp_pipeline->get_viewport();
 
             r32 pc_resolution[2];
             pc_resolution[0] = viewport.width - viewport.x;
             pc_resolution[1] = viewport.height - viewport.y;
-            vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(r32) * 0, sizeof(r32) * 2, pc_resolution);
+            device->call().vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(r32) * 0, sizeof(r32) * 2, pc_resolution);
 
             r32 pc_time_depth[2];
             pc_time_depth[0] = to_r32(to_sec(frame.get_running_time()));
             pc_time_depth[1] = lamp_depth;
-            vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(r32) * 2, sizeof(r32) * 2, pc_time_depth);
+            device->call().vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(r32) * 2, sizeof(r32) * 2, pc_time_depth);
 
             r32 pc_color[4];
             pc_color[0] = lamp_color.r;
             pc_color[1] = lamp_color.g;
             pc_color[2] = lamp_color.b;
             pc_color[3] = lamp_color.a;
-            vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(r32) * 4, sizeof(r32) * 4, pc_color);
+            device->call().vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(r32) * 4, sizeof(r32) * 4, pc_color);
 
-            vkCmdDraw(cmd_buf, 3, 1, 0, 0);
+            device->call().vkCmdDraw(cmd_buf, 3, 1, 0, 0);
         };
 
         if (!lamp_pipeline->create(render_pass->get()))
@@ -112,17 +111,10 @@ int main(int argc, char* argv[]) {
     }
 
     gui gui(window.get());
-    if (!gui.create(device, frame_count))
+    if (!gui.create(device, frame_count, render_pass->get()))
         return error::create_failed;
 
-    {
-        auto gui_pipeline = gui.get_pipeline();
-
-        if (!gui_pipeline->create(render_pass->get()))
-            return error::create_failed;
-
-        render_pass->add(gui_pipeline);
-    }
+    render_pass->add(gui.get_pipeline());
 
     auto fonts = texture::make();
     if (!gui.upload_fonts(fonts))
@@ -137,9 +129,11 @@ int main(int argc, char* argv[]) {
 
     block.add_command([&](VkCommandBuffer cmd_buf) {
 
-        staging.stage(cmd_buf, block.get_current_frame());
+        auto current_frame = block.get_current_frame();
 
-        render_pass->process(cmd_buf, block.get_current_frame());
+        staging.stage(cmd_buf, current_frame);
+
+        render_pass->process(cmd_buf, current_frame);
     });
 
     auto show_editor = true;
@@ -174,6 +168,9 @@ int main(int argc, char* argv[]) {
     input.add(&gui);
 
     input.key.listeners.add([&](key_event::ref event) {
+
+        if (gui.want_capture_mouse())
+            return;
 
         if (event.pressed(key::tab))
             show_editor = !show_editor;
@@ -219,7 +216,7 @@ int main(int argc, char* argv[]) {
 
     frame.add_run_end([&]() {
 
-        lamp_descriptor->free_set(lamp_descriptor_set);
+        lamp_descriptor->free(lamp_descriptor_set);
         lamp_descriptor->destroy();
 
         lamp_pipeline->destroy();

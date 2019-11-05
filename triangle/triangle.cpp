@@ -57,19 +57,20 @@ int main(int argc, char* argv[]) {
     pipeline_layout::ptr triangle_pipeline_layout;
 
     descriptor::ptr triangle_descriptor;
-    VkDescriptorSet triangle_descriptor_set = {};
+    VkDescriptorSet triangle_descriptor_set;
 
     {
-        if (!triangle_pipeline->add_shader_stage("triangle/vertex.spirv", VK_SHADER_STAGE_VERTEX_BIT))
+        if (!triangle_pipeline->add_shader("triangle/vertex.spirv", VK_SHADER_STAGE_VERTEX_BIT))
             return error::create_failed;
 
-        if (!triangle_pipeline->add_shader_stage("triangle/fragment.spirv", VK_SHADER_STAGE_FRAGMENT_BIT))
+        if (!triangle_pipeline->add_shader("triangle/fragment.spirv", VK_SHADER_STAGE_FRAGMENT_BIT))
             return error::create_failed;
 
         triangle_pipeline->add_color_blend_attachment();
 
         triangle_pipeline->set_vertex_input_binding({ 0, sizeof(vertex), VK_VERTEX_INPUT_RATE_VERTEX });
         triangle_pipeline->set_vertex_input_attributes({
+
                             { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, to_ui32(offsetof(vertex, position)) },
                             { 1, 0, VK_FORMAT_R32G32B32_SFLOAT, to_ui32(offsetof(vertex, color)) },
         });
@@ -85,13 +86,12 @@ int main(int argc, char* argv[]) {
             return error::create_failed;
 
         triangle_pipeline->set_layout(triangle_pipeline_layout);
-        triangle_pipeline->set_auto_bind(true);
 
-        triangle_descriptor_set = triangle_descriptor->allocate_set();
+        triangle_descriptor_set = triangle_descriptor->allocate();
 
         triangle_pipeline->on_process = [&](VkCommandBuffer cmd_buf) {
 
-            triangle_pipeline_layout->bind_descriptor_set(cmd_buf, triangle_descriptor_set);
+            triangle_pipeline_layout->bind(cmd_buf, triangle_descriptor_set);
 
             triangle->bind_draw(cmd_buf);
         };
@@ -103,17 +103,10 @@ int main(int argc, char* argv[]) {
     }
 
     gui gui(window.get());
-    if (!gui.create(device, frame_count))
+    if (!gui.create(device, frame_count, render_pass->get()))
         return error::create_failed;
 
-    {
-        auto gui_pipeline = gui.get_pipeline();
-
-        if (!gui_pipeline->create(render_pass->get()))
-            return error::create_failed;
-
-        render_pass->add(gui_pipeline);
-    }
+    render_pass->add(gui.get_pipeline());
 
     auto fonts = texture::make();
     if (!gui.upload_fonts(fonts))
@@ -128,9 +121,11 @@ int main(int argc, char* argv[]) {
 
     block.add_command([&](VkCommandBuffer cmd_buf) {
 
-        staging.stage(cmd_buf, block.get_current_frame());
+        auto current_frame = block.get_current_frame();
 
-        render_pass->process(cmd_buf, block.get_current_frame());
+        staging.stage(cmd_buf, current_frame);
+
+        render_pass->process(cmd_buf, current_frame);
     });
 
     auto show_editor = true;
@@ -154,6 +149,9 @@ int main(int argc, char* argv[]) {
     input.add(&gui);
 
     input.key.listeners.add([&](key_event::ref event) {
+
+        if (gui.want_capture_mouse())
+            return;
 
         if (event.pressed(key::tab))
             show_editor = !show_editor;
@@ -201,7 +199,7 @@ int main(int argc, char* argv[]) {
 
         triangle->destroy();
 
-        triangle_descriptor->free_set(triangle_descriptor_set);
+        triangle_descriptor->free(triangle_descriptor_set);
         triangle_descriptor->destroy();
 
         triangle_pipeline->destroy();
