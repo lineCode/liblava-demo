@@ -57,7 +57,7 @@ int main(int argc, char* argv[]) {
     if (!camera.create(device))
         return error::create_failed;
 
-    mat4 spawn_model = glm::identity<mat4>();
+    auto spawn_model = glm::identity<mat4>();
 
     buffer spawn_model_buffer;
     if (!spawn_model_buffer.create_mapped(device, &spawn_model, sizeof(mat4), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT))
@@ -192,8 +192,8 @@ int main(int argc, char* argv[]) {
 
         ImGui::Begin(config.app, &show_editor, ImGuiWindowFlags_NoResize);
 
-        ImGui::DragFloat3("cam pos", (r32*)&camera.position);
-        ImGui::DragFloat3("cam rot", (r32*)&camera.rotation);
+        ImGui::DragFloat3("cam pos", (r32*)&camera.position, 0.01f);
+        ImGui::DragFloat3("cam rot", (r32*)&camera.rotation, 0.1f);
 
         ImGui::Separator();
 
