@@ -87,19 +87,18 @@ int main(int argc, char* argv[]) {
             r32 pc_resolution[2];
             pc_resolution[0] = viewport.width - viewport.x;
             pc_resolution[1] = viewport.height - viewport.y;
-            device->call().vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(r32) * 0, sizeof(r32) * 2, pc_resolution);
+            device->call().vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT, 
+                                                       sizeof(r32) * 0, sizeof(r32) * 2, pc_resolution);
 
-            r32 pc_time_depth[2];
-            pc_time_depth[0] = to_r32(to_sec(frame.get_running_time()));
-            pc_time_depth[1] = lamp_depth;
-            device->call().vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(r32) * 2, sizeof(r32) * 2, pc_time_depth);
+            auto pc_time = to_r32(to_sec(frame.get_running_time()));
+            device->call().vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT, 
+                                                       sizeof(r32) * 2, sizeof(r32), &pc_time);
 
-            r32 pc_color[4];
-            pc_color[0] = lamp_color.r;
-            pc_color[1] = lamp_color.g;
-            pc_color[2] = lamp_color.b;
-            pc_color[3] = lamp_color.a;
-            device->call().vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(r32) * 4, sizeof(r32) * 4, pc_color);
+            device->call().vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT, 
+                                                       sizeof(r32) * 3, sizeof(r32), &lamp_depth);
+
+            device->call().vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT, 
+                                                       sizeof(r32) * 4, sizeof(r32) * 4, glm::value_ptr(lamp_color));
 
             device->call().vkCmdDraw(cmd_buf, 3, 1, 0, 0);
         };

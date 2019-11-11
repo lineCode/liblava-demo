@@ -2,7 +2,8 @@
 
 layout(location = 0) out vec4 fragColor;
 
-layout(push_constant) uniform uPushConstant{
+layout(push_constant) uniform uPushConstant
+{
     vec2 uResolution;
     vec2 uTimeDepth;
     vec4 uColor;
