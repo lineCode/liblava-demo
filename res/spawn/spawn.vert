@@ -1,7 +1,7 @@
 #version 450 core
 
 layout (location = 0) in vec3 inPos;
-layout (location = 1) in vec3 inColor;
+layout (location = 1) in vec4 inColor;
 layout (location = 2) in vec2 inUV;
 
 layout (binding = 0) uniform Ubo_Camera
@@ -25,7 +25,7 @@ out gl_PerVertex
 
 void main()
 {
-    outColor = vec4(inColor, 1.0);
+    outColor = inColor;
     outUV = inUV;
 
     gl_Position = ubo_camera.projection * ubo_camera.view * ubo_spawn.model * vec4(inPos, 1.0);
