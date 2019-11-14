@@ -77,7 +77,7 @@ int main(int argc, char* argv[]) {
 
     auto spawn_descriptor_set = spawn_descriptor->allocate();
 
-    VkWriteDescriptorSet write_desc_ubo_camera
+    VkWriteDescriptorSet const write_desc_ubo_camera
     {
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .dstSet = spawn_descriptor_set,
@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
         .pBufferInfo = app.camera.get_info(),
     };
 
-    VkWriteDescriptorSet write_desc_ubo_spawn
+    VkWriteDescriptorSet const write_desc_ubo_spawn
     {
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .dstSet = spawn_descriptor_set,
@@ -97,7 +97,7 @@ int main(int argc, char* argv[]) {
         .pBufferInfo = spawn_model_buffer.get_info(),
     };
 
-    VkWriteDescriptorSet write_desc_sampler
+    VkWriteDescriptorSet const write_desc_sampler
     {
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .dstSet = spawn_descriptor_set,
