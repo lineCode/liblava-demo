@@ -94,5 +94,5 @@ int main(int argc, char* argv[]) {
         triangle_pipeline_layout->destroy();
     });
 
-    return app.run() ? 0 : error::aborted;
+    return app.run();
 }
