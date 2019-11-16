@@ -38,90 +38,110 @@ int main(int argc, char* argv[]) {
     if (!spawn_model_buffer.create_mapped(app.device, &spawn_model, sizeof(mat4), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT))
         return error::create_failed;
 
-    auto spawn_pipeline = graphics_pipeline::make(app.device);
+    graphics_pipeline::ptr spawn_pipeline;
+    pipeline_layout::ptr spawn_pipeline_layout;
 
-    if (!spawn_pipeline->add_shader("spawn/vertex.spirv", VK_SHADER_STAGE_VERTEX_BIT))
-        return error::create_failed;
+    VkDescriptorSet spawn_descriptor_set;
+    descriptor::ptr spawn_descriptor;
 
-    if (!spawn_pipeline->add_shader("spawn/fragment.spirv", VK_SHADER_STAGE_FRAGMENT_BIT))
-        return error::create_failed;
+    app.on_create = [&]() {
 
-    spawn_pipeline->add_color_blend_attachment();
+        spawn_pipeline = graphics_pipeline::make(app.device);
 
-    spawn_pipeline->set_depth_test_and_write();
-    spawn_pipeline->set_depth_compare_op(VK_COMPARE_OP_LESS_OR_EQUAL);
+        if (!spawn_pipeline->add_shader("spawn/vertex.spirv", VK_SHADER_STAGE_VERTEX_BIT))
+            return false;
 
-    spawn_pipeline->set_vertex_input_binding({ 0, sizeof(vertex), VK_VERTEX_INPUT_RATE_VERTEX });
-    spawn_pipeline->set_vertex_input_attributes({
-                            { 0, 0, VK_FORMAT_R32G32B32_SFLOAT,    to_ui32(offsetof(vertex, position)) },
-                            { 1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, to_ui32(offsetof(vertex, color)) },
-                            { 2, 0, VK_FORMAT_R32G32_SFLOAT,       to_ui32(offsetof(vertex, uv)) },
-    });
+        if (!spawn_pipeline->add_shader("spawn/fragment.spirv", VK_SHADER_STAGE_FRAGMENT_BIT))
+            return false;
 
-    auto spawn_descriptor = descriptor::make();
+        spawn_pipeline->add_color_blend_attachment();
 
-    spawn_descriptor->add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
-    spawn_descriptor->add_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
-    spawn_descriptor->add_binding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+        spawn_pipeline->set_depth_test_and_write();
+        spawn_pipeline->set_depth_compare_op(VK_COMPARE_OP_LESS_OR_EQUAL);
 
-    if (!spawn_descriptor->create(app.device))
-        return error::create_failed;
+        spawn_pipeline->set_vertex_input_binding({ 0, sizeof(vertex), VK_VERTEX_INPUT_RATE_VERTEX });
+        spawn_pipeline->set_vertex_input_attributes({
+                                { 0, 0, VK_FORMAT_R32G32B32_SFLOAT,    to_ui32(offsetof(vertex, position)) },
+                                { 1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, to_ui32(offsetof(vertex, color)) },
+                                { 2, 0, VK_FORMAT_R32G32_SFLOAT,       to_ui32(offsetof(vertex, uv)) },
+        });
 
-    auto spawn_pipeline_layout = pipeline_layout::make();
-    spawn_pipeline_layout->add(spawn_descriptor);
+        spawn_descriptor = descriptor::make();
 
-    if (!spawn_pipeline_layout->create(app.device))
-        return error::create_failed;
+        spawn_descriptor->add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+        spawn_descriptor->add_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+        spawn_descriptor->add_binding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
 
-    spawn_pipeline->set_layout(spawn_pipeline_layout);
+        if (!spawn_descriptor->create(app.device))
+            return false;
 
-    auto spawn_descriptor_set = spawn_descriptor->allocate();
+        spawn_pipeline_layout = pipeline_layout::make();
+        spawn_pipeline_layout->add(spawn_descriptor);
 
-    VkWriteDescriptorSet const write_desc_ubo_camera
-    {
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .dstSet = spawn_descriptor_set,
-        .dstBinding = 0,
-        .descriptorCount = 1,
-        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .pBufferInfo = app.camera.get_info(),
+        if (!spawn_pipeline_layout->create(app.device))
+            return false;
+
+        spawn_pipeline->set_layout(spawn_pipeline_layout);
+
+        spawn_descriptor_set = spawn_descriptor->allocate();
+
+        VkWriteDescriptorSet const write_desc_ubo_camera
+        {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = spawn_descriptor_set,
+            .dstBinding = 0,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .pBufferInfo = app.camera.get_info(),
+        };
+
+        VkWriteDescriptorSet const write_desc_ubo_spawn
+        {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = spawn_descriptor_set,
+            .dstBinding = 1,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .pBufferInfo = spawn_model_buffer.get_info(),
+        };
+
+        VkWriteDescriptorSet const write_desc_sampler
+        {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = spawn_descriptor_set,
+            .dstBinding = 2,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .pImageInfo = default_texture->get_info(),
+        };
+
+        app.device->vkUpdateDescriptorSets({ write_desc_ubo_camera, write_desc_ubo_spawn, write_desc_sampler });
+
+        spawn_pipeline->on_process = [&](VkCommandBuffer cmd_buf) {
+
+            spawn_pipeline_layout->bind(cmd_buf, spawn_descriptor_set);
+
+            spawn_mesh->bind_draw(cmd_buf);
+        };
+
+        auto render_pass = app.forward_shading.get_render_pass();
+
+        if (!spawn_pipeline->create(render_pass->get()))
+            return false;
+
+        render_pass->add_front(spawn_pipeline);
+
+        return true;
     };
 
-    VkWriteDescriptorSet const write_desc_ubo_spawn
-    {
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .dstSet = spawn_descriptor_set,
-        .dstBinding = 1,
-        .descriptorCount = 1,
-        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .pBufferInfo = spawn_model_buffer.get_info(),
+    app.on_destroy = [&]() {
+
+        spawn_descriptor->free(spawn_descriptor_set);
+        spawn_descriptor->destroy();
+
+        spawn_pipeline->destroy();
+        spawn_pipeline_layout->destroy();
     };
-
-    VkWriteDescriptorSet const write_desc_sampler
-    {
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .dstSet = spawn_descriptor_set,
-        .dstBinding = 2,
-        .descriptorCount = 1,
-        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        .pImageInfo = default_texture->get_info(),
-    };
-
-    app.device->vkUpdateDescriptorSets({ write_desc_ubo_camera, write_desc_ubo_spawn, write_desc_sampler });
-
-    spawn_pipeline->on_process = [&](VkCommandBuffer cmd_buf) {
-
-        spawn_pipeline_layout->bind(cmd_buf, spawn_descriptor_set);
-
-        spawn_mesh->bind_draw(cmd_buf);
-    };
-
-    auto render_pass = app.forward_shading.get_render_pass();
-
-    if (!spawn_pipeline->create(render_pass->get()))
-        return error::create_failed;
-
-    render_pass->add_front(spawn_pipeline);
 
     app.gui.on_draw = [&]() {
 
@@ -157,12 +177,6 @@ int main(int argc, char* argv[]) {
 
         default_texture->destroy();
         spawn_mesh->destroy();
-
-        spawn_descriptor->free(spawn_descriptor_set);
-        spawn_descriptor->destroy();
-
-        spawn_pipeline->destroy();
-        spawn_pipeline_layout->destroy();
     });
 
     return app.run();

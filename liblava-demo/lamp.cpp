@@ -17,66 +17,86 @@ int main(int argc, char* argv[]) {
     auto lamp_depth = .03f;
     auto lamp_color = v4(.3f, .15f, .15f, 1.f);
 
-    auto lamp_pipeline = graphics_pipeline::make(app.device);
-    
-    if (!lamp_pipeline->add_shader("lamp/vertex.spirv", VK_SHADER_STAGE_VERTEX_BIT))
-        return error::create_failed;
+    graphics_pipeline::ptr lamp_pipeline;
+    pipeline_layout::ptr lamp_pipeline_layout;
 
-    if (!lamp_pipeline->add_shader("lamp/fragment.spirv", VK_SHADER_STAGE_FRAGMENT_BIT))
-        return error::create_failed;
+    VkDescriptorSet lamp_descriptor_set;
+    descriptor::ptr lamp_descriptor;
 
-    lamp_pipeline->add_color_blend_attachment();
+    app.on_create = [&]() {
 
-    lamp_pipeline->set_rasterization_cull_mode(VK_CULL_MODE_FRONT_BIT);
-    lamp_pipeline->set_rasterization_front_face(VK_FRONT_FACE_COUNTER_CLOCKWISE);
+        lamp_pipeline = graphics_pipeline::make(app.device);
 
-    auto lamp_descriptor = descriptor::make();
-    if (!lamp_descriptor->create(app.device))
-        return error::create_failed;
+        if (!lamp_pipeline->add_shader("lamp/vertex.spirv", VK_SHADER_STAGE_VERTEX_BIT))
+            return false;
 
-    auto lamp_pipeline_layout = pipeline_layout::make();
-    lamp_pipeline_layout->add(lamp_descriptor);
-    lamp_pipeline_layout->add_range({ VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(r32) * 8 });
+        if (!lamp_pipeline->add_shader("lamp/fragment.spirv", VK_SHADER_STAGE_FRAGMENT_BIT))
+            return false;
 
-    if (!lamp_pipeline_layout->create(app.device))
-        return error::create_failed;
+        lamp_pipeline->add_color_blend_attachment();
 
-    lamp_pipeline->set_layout(lamp_pipeline_layout);
-    lamp_pipeline->set_auto_size(true);
+        lamp_pipeline->set_rasterization_cull_mode(VK_CULL_MODE_FRONT_BIT);
+        lamp_pipeline->set_rasterization_front_face(VK_FRONT_FACE_COUNTER_CLOCKWISE);
 
-    auto lamp_descriptor_set = lamp_descriptor->allocate();
+        lamp_descriptor = descriptor::make();
+        if (!lamp_descriptor->create(app.device))
+            return false;
 
-    lamp_pipeline->on_process = [&](VkCommandBuffer cmd_buf) {
+        lamp_pipeline_layout = pipeline_layout::make();
+        lamp_pipeline_layout->add(lamp_descriptor);
+        lamp_pipeline_layout->add_range({ VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(r32) * 8 });
 
-        lamp_pipeline_layout->bind(cmd_buf, lamp_descriptor_set);
+        if (!lamp_pipeline_layout->create(app.device))
+            return false;
 
-        auto viewport = lamp_pipeline->get_viewport();
+        lamp_pipeline->set_layout(lamp_pipeline_layout);
+        lamp_pipeline->set_auto_size(true);
 
-        r32 pc_resolution[2];
-        pc_resolution[0] = viewport.width - viewport.x;
-        pc_resolution[1] = viewport.height - viewport.y;
-        app.device->call().vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                       sizeof(r32) * 0, sizeof(r32) * 2, pc_resolution);
+        lamp_descriptor_set = lamp_descriptor->allocate();
 
-        auto pc_time = to_r32(to_sec(app.get_running_time()));
-        app.device->call().vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                       sizeof(r32) * 2, sizeof(r32), &pc_time);
+        lamp_pipeline->on_process = [&](VkCommandBuffer cmd_buf) {
 
-        app.device->call().vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                       sizeof(r32) * 3, sizeof(r32), &lamp_depth);
+            lamp_pipeline_layout->bind(cmd_buf, lamp_descriptor_set);
 
-        app.device->call().vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                       sizeof(r32) * 4, sizeof(r32) * 4, glm::value_ptr(lamp_color));
+            auto viewport = lamp_pipeline->get_viewport();
 
-        app.device->call().vkCmdDraw(cmd_buf, 3, 1, 0, 0);
+            r32 pc_resolution[2];
+            pc_resolution[0] = viewport.width - viewport.x;
+            pc_resolution[1] = viewport.height - viewport.y;
+            app.device->call().vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                           sizeof(r32) * 0, sizeof(r32) * 2, pc_resolution);
+
+            auto pc_time = to_r32(to_sec(app.get_running_time()));
+            app.device->call().vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                           sizeof(r32) * 2, sizeof(r32), &pc_time);
+
+            app.device->call().vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                           sizeof(r32) * 3, sizeof(r32), &lamp_depth);
+
+            app.device->call().vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                           sizeof(r32) * 4, sizeof(r32) * 4, glm::value_ptr(lamp_color));
+
+            app.device->call().vkCmdDraw(cmd_buf, 3, 1, 0, 0);
+        };
+
+        auto render_pass = app.forward_shading.get_render_pass();
+
+        if (!lamp_pipeline->create(render_pass->get()))
+            return false;
+
+        render_pass->add_front(lamp_pipeline);
+
+        return true;
     };
 
-    auto render_pass = app.forward_shading.get_render_pass();
+    app.on_destroy = [&]() {
 
-    if (!lamp_pipeline->create(render_pass->get()))
-        return error::create_failed;
+        lamp_descriptor->free(lamp_descriptor_set);
+        lamp_descriptor->destroy();
 
-    render_pass->add_front(lamp_pipeline);
+        lamp_pipeline->destroy();
+        lamp_pipeline_layout->destroy();
+    };
 
     app.gui.on_draw = [&]() {
 
@@ -101,15 +121,6 @@ int main(int argc, char* argv[]) {
 
         ImGui::End();
     };
-
-    app.add_run_end([&]() {
-
-        lamp_descriptor->free(lamp_descriptor_set);
-        lamp_descriptor->destroy();
-
-        lamp_pipeline->destroy();
-        lamp_pipeline_layout->destroy();
-    });
 
     return app.run();
 }

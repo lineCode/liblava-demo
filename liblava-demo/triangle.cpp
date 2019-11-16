@@ -26,49 +26,70 @@ int main(int argc, char* argv[]) {
     if (!triangle->reload())
         return error::create_failed;
 
-    auto triangle_pipeline = graphics_pipeline::make(app.device);
+    graphics_pipeline::ptr triangle_pipeline;
+    pipeline_layout::ptr triangle_pipeline_layout;
 
-    if (!triangle_pipeline->add_shader("triangle/vertex.spirv", VK_SHADER_STAGE_VERTEX_BIT))
-        return error::create_failed;
+    VkDescriptorSet triangle_descriptor_set;
+    descriptor::ptr triangle_descriptor;
 
-    if (!triangle_pipeline->add_shader("triangle/fragment.spirv", VK_SHADER_STAGE_FRAGMENT_BIT))
-        return error::create_failed;
+    app.on_create = [&]() {
 
-    triangle_pipeline->add_color_blend_attachment();
+        triangle_pipeline = graphics_pipeline::make(app.device);
 
-    triangle_pipeline->set_vertex_input_binding({ 0, sizeof(vertex), VK_VERTEX_INPUT_RATE_VERTEX });
-    triangle_pipeline->set_vertex_input_attributes({
-                            { 0, 0, VK_FORMAT_R32G32B32_SFLOAT,    to_ui32(offsetof(vertex, position)) },
-                            { 1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, to_ui32(offsetof(vertex, color)) },
-    });
+        triangle_descriptor = descriptor::make();
+        if (!triangle_descriptor->create(app.device))
+            return false;
 
-    auto triangle_descriptor = descriptor::make();
-    if (!triangle_descriptor->create(app.device))
-        return error::create_failed;
+        triangle_pipeline_layout = pipeline_layout::make();
+        triangle_pipeline_layout->add(triangle_descriptor);
 
-    auto triangle_pipeline_layout = pipeline_layout::make();
-    triangle_pipeline_layout->add(triangle_descriptor);
+        if (!triangle_pipeline_layout->create(app.device))
+            return false;
 
-    if (!triangle_pipeline_layout->create(app.device))
-        return error::create_failed;
+        triangle_descriptor_set = triangle_descriptor->allocate();
 
-    triangle_pipeline->set_layout(triangle_pipeline_layout);
+        triangle_pipeline->on_process = [&](VkCommandBuffer cmd_buf) {
 
-    auto triangle_descriptor_set = triangle_descriptor->allocate();
+            triangle_pipeline_layout->bind(cmd_buf, triangle_descriptor_set);
 
-    triangle_pipeline->on_process = [&](VkCommandBuffer cmd_buf) {
+            triangle->bind_draw(cmd_buf);
+        };
 
-        triangle_pipeline_layout->bind(cmd_buf, triangle_descriptor_set);
+        if (!triangle_pipeline->add_shader("triangle/vertex.spirv", VK_SHADER_STAGE_VERTEX_BIT))
+            return false;
 
-        triangle->bind_draw(cmd_buf);
+        if (!triangle_pipeline->add_shader("triangle/fragment.spirv", VK_SHADER_STAGE_FRAGMENT_BIT))
+            return false;
+
+        triangle_pipeline->add_color_blend_attachment();
+
+        triangle_pipeline->set_vertex_input_binding({ 0, sizeof(vertex), VK_VERTEX_INPUT_RATE_VERTEX });
+        triangle_pipeline->set_vertex_input_attributes({
+                                { 0, 0, VK_FORMAT_R32G32B32_SFLOAT,    to_ui32(offsetof(vertex, position)) },
+                                { 1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, to_ui32(offsetof(vertex, color)) },
+        });
+
+        auto render_pass = app.forward_shading.get_render_pass();
+        
+        triangle_pipeline->set_layout(triangle_pipeline_layout);
+
+        if (!triangle_pipeline->create(render_pass->get()))
+            return false;
+
+        render_pass->add_front(triangle_pipeline);
+
+        return true;
     };
 
-    auto render_pass = app.forward_shading.get_render_pass();
+    app.on_destroy = [&]() {
 
-    if (!triangle_pipeline->create(render_pass->get()))
-        return error::create_failed;
+        triangle_pipeline->destroy();
 
-    render_pass->add_front(triangle_pipeline);
+        triangle_descriptor->free(triangle_descriptor_set);
+        triangle_descriptor->destroy();
+
+        triangle_pipeline_layout->destroy();
+    };
 
     app.gui.on_draw = [&]() {
 
@@ -86,12 +107,6 @@ int main(int argc, char* argv[]) {
     app.add_run_end([&]() {
 
         triangle->destroy();
-
-        triangle_descriptor->free(triangle_descriptor_set);
-        triangle_descriptor->destroy();
-
-        triangle_pipeline->destroy();
-        triangle_pipeline_layout->destroy();
     });
 
     return app.run();
