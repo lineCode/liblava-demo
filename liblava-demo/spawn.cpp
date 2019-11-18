@@ -143,31 +143,138 @@ int main(int argc, char* argv[]) {
         spawn_pipeline_layout->destroy();
     };
 
+    auto spawn_position = v3(0.f);
+    auto spawn_rotation = v3(0.f);
+    auto spawn_scale = v3(1.f);
+
+    auto update_spawn_matrix = false;
+
     app.gui.on_draw = [&]() {
 
         ImGui::SetNextWindowPos(ImVec2(300, 100), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(220, 180), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(260, 350), ImGuiCond_FirstUseEver);
 
         ImGui::Begin(app.get_name(), nullptr, ImGuiWindowFlags_NoResize);
 
-        ImGui::DragFloat3("cam pos", (r32*)&app.camera.position, 0.01f);
-        ImGui::DragFloat3("cam rot", (r32*)&app.camera.rotation, 0.1f);
+        auto camera_active = app.camera.is_active();
+        if (ImGui::Checkbox("camera", &camera_active))
+            app.camera.set_active(camera_active);
 
-        ImGui::Separator();
+        ImGui::SameLine(0.f, 50.f);
 
-        ImGui::Text("mesh load time: %.3f sec", to_sec(mesh_load_time));
-        ImGui::Text("mesh vertices: %d", spawn_mesh->get_vertices_count());
+        auto first_person = app.camera.type == camera_type::first_person;
+        if (ImGui::Checkbox("first person##camera", &first_person))
+            app.camera.type = first_person ? camera_type::first_person : camera_type::look_at;
+
+        ImGui::DragFloat3("position##camera", (r32*)&app.camera.position, 0.01f);
+        ImGui::DragFloat3("rotation##camera", (r32*)&app.camera.rotation, 0.1f);
+        
+        ImGui::Spacing();
+
+        ImGui::Checkbox("lock rotation##camera", &app.camera.lock_rotation);
+
+        ImGui::SameLine(0.f, 20.f);
+
+        ImGui::Checkbox("lock z##camera", &app.camera.lock_z);
 
         ImGui::Spacing();
 
+        if (ImGui::CollapsingHeader("speed")) {
+
+            ImGui::DragFloat("movement##camera", &app.camera.movement_speed, 0.1f);
+            ImGui::DragFloat("rotation##camera", &app.camera.rotation_speed, 0.1f);
+            ImGui::DragFloat("zoom##camera", &app.camera.zoom_speed, 0.1f);
+        }
+
+        if (ImGui::CollapsingHeader("projection")) {
+
+            auto update_projection = false;
+
+            update_projection |= ImGui::DragFloat("fov", &app.camera.fov);
+            update_projection |= ImGui::DragFloat("z near", &app.camera.z_near);
+            update_projection |= ImGui::DragFloat("z far", &app.camera.z_far);
+            update_projection |= ImGui::DragFloat("aspect", &app.camera.aspect_ratio);
+
+            if (update_projection)
+                app.camera.update_projection();
+        }
+
+        ImGui::Separator();
+
+        ImGui::Text("spawn (load: %.3f sec)", to_sec(mesh_load_time));
+
+        ImGui::Spacing();
+
+        update_spawn_matrix |= ImGui::DragFloat3("position##spawn", (r32*)&spawn_position, 0.01f);
+        update_spawn_matrix |= ImGui::DragFloat3("rotation##spawn", (r32*)&spawn_rotation, 0.1f);
+        update_spawn_matrix |= ImGui::DragFloat3("scale##spawn", (r32*)&spawn_scale, 0.1f);
+
+        ImGui::Spacing();
+
+        ImGui::Text("vertices: %d", spawn_mesh->get_vertices_count());
+
         auto texture_size = default_texture->get_size();
-        ImGui::Text("texture size: %d x %d", texture_size.x, texture_size.y);
+        ImGui::Text("texture: %d x %d", texture_size.x, texture_size.y);
 
         app.draw_about();
+
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("space = first person\nr = lock rotation\nz = lock z");
 
         ImGui::End();
     };
 
+    app.input.key.listeners.add([&](key_event::ref event) {
+
+        if (app.gui.want_capture_mouse())
+            return false;
+
+        if (event.pressed(key::space)) {
+
+            app.camera.type = app.camera.type == camera_type::first_person ? 
+                                    camera_type::look_at : camera_type::first_person;
+            return true;
+        }
+
+        if (event.pressed(key::r))
+            app.camera.lock_rotation = !app.camera.lock_rotation;
+
+        if (event.pressed(key::z))
+            app.camera.lock_z = !app.camera.lock_z;
+
+        return false;
+    });
+
+    gamepad pad(gamepad_id::_1);
+
+    app.on_update = [&](milliseconds delta) {
+
+        if (app.camera.is_active()) {
+
+            app.camera.update_view(delta, app.input.get_mouse_position());
+
+            if (pad.ready() && pad.update())
+                app.camera.update_view(delta, pad);
+        }
+
+        if (update_spawn_matrix) {
+
+            spawn_model = glm::translate(mat4(1.f), spawn_position);
+
+            spawn_model = glm::rotate(spawn_model, glm::radians(spawn_rotation.x), v3(1.f, 1.f, 0.f));
+            spawn_model = glm::rotate(spawn_model, glm::radians(spawn_rotation.y), v3(0.f, 1.f, 0.f));
+            spawn_model = glm::rotate(spawn_model, glm::radians(spawn_rotation.z), v3(0.f, 0.f, 1.f));
+
+            spawn_model = glm::scale(spawn_model, spawn_scale);
+
+            memcpy(as_ptr(spawn_model_buffer.get_mapped_data()), &spawn_model, sizeof(mat4));
+
+            update_spawn_matrix = false;
+        }
+
+        return true;
+    };
+ 
     app.add_run_end([&]() {
 
         spawn_model_buffer.destroy();
