@@ -163,10 +163,7 @@ int main(int argc, char* argv[]) {
         auto texture_size = default_texture->get_size();
         ImGui::Text("texture size: %d x %d", texture_size.x, texture_size.y);
 
-        ImGui::Separator();
-
-        ImGui::Text("%s %s", _liblava_, to_string(_version).c_str());
-        ImGui::Text("%.f fps", ImGui::GetIO().Framerate);
+        app.draw_about();
 
         ImGui::End();
     };

@@ -98,10 +98,26 @@ int main(int argc, char* argv[]) {
         lamp_pipeline_layout->destroy();
     };
 
+    auto auto_play = true;
+
+    app.input.key.listeners.add([&](key_event::ref event) {
+
+        if (app.gui.want_capture_mouse())
+            return false;
+
+        if (event.pressed(key::space)) {
+
+            auto_play = !auto_play;
+            return true;
+        }
+
+        return false;
+    });
+
     app.gui.on_draw = [&]() {
 
         ImGui::SetNextWindowPos(ImVec2(400, 100), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(200, 150), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(190, 170), ImGuiCond_FirstUseEver);
 
         ImGui::Begin(app.get_name(), nullptr, ImGuiWindowFlags_NoResize);
 
@@ -109,17 +125,102 @@ int main(int argc, char* argv[]) {
         if (ImGui::Checkbox("active", &lamp_active))
             lamp_pipeline->toggle();
 
+        ImGui::SameLine(0.f, 10.f);
+
+        ImGui::Checkbox("auto play", &auto_play);
+
         ImGui::Spacing();
 
-        ImGui::DragFloat("depth", &lamp_depth, 0.0001f, 0.01f, 1.f);
+        ImGui::DragFloat("depth", &lamp_depth, 0.0001f, 0.01f, 1.f, "%.4f");
         ImGui::ColorEdit4("color", (r32*)&lamp_color);
 
-        ImGui::Separator();
+        auto clear_color = app.forward_shading.get_render_pass()->get_clear_color();
+        if (ImGui::ColorEdit3("ground", (r32*)&clear_color))
+            app.forward_shading.get_render_pass()->set_clear_color(clear_color);
 
-        ImGui::Text("%s %s", _liblava_, to_string(_version).c_str());
-        ImGui::Text("%.f fps", ImGui::GetIO().Framerate);
+        app.draw_about();
+
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("space = auto play");
 
         ImGui::End();
+    };
+
+    struct dimmer {
+
+        explicit dimmer() {
+
+            next_factor();
+        }
+
+        r32 update(milliseconds delta, r32 value) {
+
+            auto next = factor * to_r32(to_sec(delta));
+
+            if (add)
+                value += next;
+            else
+                value -= next;
+
+            if (value > max) {
+
+                add = false;
+                next_factor();
+            }
+            else if (value < min) {
+
+                add = true;
+                next_factor();
+            }
+
+            return value;
+        }
+
+        void next_factor() {
+
+            factor = random(factor_min, factor_max);
+        }
+
+        r32 factor = 0.f;
+        r32 factor_min = 0.00001f;
+        r32 factor_max = 0.0001f;
+
+        bool add = false;
+        r32 min = 0.01f;
+        r32 max = 0.03f;
+    };
+
+    dimmer depth_dimmer;
+    dimmer color_dimmer;
+    color_dimmer.min = 0.f;
+    color_dimmer.max = 1.f;
+    color_dimmer.factor_min = 0.0005f;
+    color_dimmer.factor_max = 0.02f;
+    color_dimmer.next_factor();
+    
+    auto r_dimmer = color_dimmer;
+    r_dimmer.add = true;
+
+    auto g_dimmer = color_dimmer;
+    g_dimmer.add = true;
+
+    auto b_dimmer = color_dimmer;
+    auto a_dimmer = color_dimmer;
+    a_dimmer.min = 0.2f;
+
+    app.on_update = [&](milliseconds delta) {
+
+        if (!auto_play || !lamp_pipeline->is_active())
+            return true;
+        
+        lamp_depth = depth_dimmer.update(delta, lamp_depth);
+
+        lamp_color.r = r_dimmer.update(delta, lamp_color.r);
+        lamp_color.g = g_dimmer.update(delta, lamp_color.g);
+        lamp_color.b = b_dimmer.update(delta, lamp_color.b);
+        lamp_color.a = a_dimmer.update(delta, lamp_color.a);
+
+        return true;
     };
 
     return app.run();

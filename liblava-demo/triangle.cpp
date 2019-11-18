@@ -98,8 +98,7 @@ int main(int argc, char* argv[]) {
 
         ImGui::Begin(app.get_name(), nullptr, ImGuiWindowFlags_NoResize);
 
-        ImGui::Text("%s %s", _liblava_, to_string(_version).c_str());
-        ImGui::Text("%.f fps", ImGui::GetIO().Framerate);
+        app.draw_about(false);
 
         ImGui::End();
     };

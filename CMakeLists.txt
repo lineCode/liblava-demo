@@ -9,14 +9,7 @@ project(liblava-demo VERSION 0.4.4 LANGUAGES C CXX)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/liblava ${CMAKE_CURRENT_BINARY_DIR}/liblava)
 
 set(LIBLAVA_DEMO_DIR ${CMAKE_CURRENT_SOURCE_DIR}/liblava-demo)
-
-message("> lava-lamp")
-
-add_executable(lava-lamp 
-        ${LIBLAVA_DEMO_DIR}/lamp.cpp
-        )
-
-target_link_libraries(lava-lamp lava::app)
+set(LIBLAVA_DEMO_EXT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/ext)
 
 message("> lava-triangle")
 
@@ -25,6 +18,14 @@ add_executable(lava-triangle
         )
 
 target_link_libraries(lava-triangle lava::app)
+
+message("> lava-lamp")
+
+add_executable(lava-lamp 
+        ${LIBLAVA_DEMO_DIR}/lamp.cpp
+        )
+
+target_link_libraries(lava-lamp lava::app)
 
 message("> lava-spawn")
 
