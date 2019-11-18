@@ -152,7 +152,7 @@ int main(int argc, char* argv[]) {
     app.gui.on_draw = [&]() {
 
         ImGui::SetNextWindowPos(ImVec2(300, 100), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(260, 350), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(260, 360), ImGuiCond_FirstUseEver);
 
         ImGui::Begin(app.get_name(), nullptr, ImGuiWindowFlags_NoResize);
 
@@ -165,6 +165,8 @@ int main(int argc, char* argv[]) {
         auto first_person = app.camera.type == camera_type::first_person;
         if (ImGui::Checkbox("first person##camera", &first_person))
             app.camera.type = first_person ? camera_type::first_person : camera_type::look_at;
+
+        ImGui::Spacing();
 
         ImGui::DragFloat3("position##camera", (r32*)&app.camera.position, 0.01f);
         ImGui::DragFloat3("rotation##camera", (r32*)&app.camera.rotation, 0.1f);
