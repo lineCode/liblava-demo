@@ -152,7 +152,7 @@ int main(int argc, char* argv[]) {
     app.gui.on_draw = [&]() {
 
         ImGui::SetNextWindowPos(ImVec2(300, 100), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(260, 360), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(260, 355), ImGuiCond_FirstUseEver);
 
         ImGui::Begin(app.get_name(), nullptr, ImGuiWindowFlags_NoResize);
 
@@ -175,7 +175,7 @@ int main(int argc, char* argv[]) {
 
         ImGui::Checkbox("lock rotation##camera", &app.camera.lock_rotation);
 
-        ImGui::SameLine(0.f, 20.f);
+        ImGui::SameLine(0.f, 35.f);
 
         ImGui::Checkbox("lock z##camera", &app.camera.lock_z);
 
