@@ -66,7 +66,7 @@ int main(int argc, char* argv[]) {
             app.device->call().vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT,
                                                            sizeof(r32) * 0, sizeof(r32) * 2, pc_resolution);
 
-            auto pc_time = to_r32(to_sec(app.get_running_time()));
+            auto pc_time = to_r32(to_sec(app.run_time.current));
             app.device->call().vkCmdPushConstants(cmd_buf, lamp_pipeline_layout->get(), VK_SHADER_STAGE_FRAGMENT_BIT,
                                                            sizeof(r32) * 2, sizeof(r32), &pc_time);
 
@@ -105,7 +105,7 @@ int main(int argc, char* argv[]) {
         if (app.gui.want_capture_mouse())
             return false;
 
-        if (event.pressed(key::space)) {
+        if (event.pressed(key::enter)) {
 
             auto_play = !auto_play;
             return true;
@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
     app.gui.on_draw = [&]() {
 
         ImGui::SetNextWindowPos(ImVec2(400, 100), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(190, 170), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(190, 190), ImGuiCond_FirstUseEver);
 
         ImGui::Begin(app.get_name(), nullptr, ImGuiWindowFlags_NoResize);
 
@@ -138,10 +138,12 @@ int main(int argc, char* argv[]) {
         if (ImGui::ColorEdit3("ground", (r32*)&clear_color))
             app.forward_shading.get_render_pass()->set_clear_color(clear_color);
 
+        ImGui::DragFloat("speed", &app.run_time.speed, 0.001f, -10.f, 10.f, "x %.3f");
+
         app.draw_about();
 
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("space = auto play");
+            ImGui::SetTooltip("enter = auto play");
 
         ImGui::End();
     };

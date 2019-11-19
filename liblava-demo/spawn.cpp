@@ -221,7 +221,7 @@ int main(int argc, char* argv[]) {
         app.draw_about();
 
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("space = first person\nr = lock rotation\nz = lock z");
+            ImGui::SetTooltip("enter = first person\nr = lock rotation\nz = lock z");
 
         ImGui::End();
     };
@@ -231,7 +231,7 @@ int main(int argc, char* argv[]) {
         if (app.gui.want_capture_mouse())
             return false;
 
-        if (event.pressed(key::space)) {
+        if (event.pressed(key::enter)) {
 
             app.camera.type = app.camera.type == camera_type::first_person ? 
                                     camera_type::look_at : camera_type::first_person;
