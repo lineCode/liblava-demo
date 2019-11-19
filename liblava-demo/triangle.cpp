@@ -96,7 +96,7 @@ int main(int argc, char* argv[]) {
         ImGui::SetNextWindowPos(ImVec2(400, 100), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowSize(ImVec2(200, 70), ImGuiCond_FirstUseEver);
 
-        ImGui::Begin(app.get_name(), nullptr, ImGuiWindowFlags_NoResize);
+        ImGui::Begin(app.get_name());
 
         app.draw_about(false);
 

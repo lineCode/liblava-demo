@@ -119,7 +119,7 @@ int main(int argc, char* argv[]) {
         ImGui::SetNextWindowPos(ImVec2(400, 100), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowSize(ImVec2(190, 190), ImGuiCond_FirstUseEver);
 
-        ImGui::Begin(app.get_name(), nullptr, ImGuiWindowFlags_NoResize);
+        ImGui::Begin(app.get_name());
 
         auto lamp_active = lamp_pipeline->is_active();
         if (ImGui::Checkbox("active", &lamp_active))

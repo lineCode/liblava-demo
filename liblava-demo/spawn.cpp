@@ -154,7 +154,7 @@ int main(int argc, char* argv[]) {
         ImGui::SetNextWindowPos(ImVec2(300, 100), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowSize(ImVec2(260, 355), ImGuiCond_FirstUseEver);
 
-        ImGui::Begin(app.get_name(), nullptr, ImGuiWindowFlags_NoResize);
+        ImGui::Begin(app.get_name());
 
         auto camera_active = app.camera.is_active();
         if (ImGui::Checkbox("camera", &camera_active))
