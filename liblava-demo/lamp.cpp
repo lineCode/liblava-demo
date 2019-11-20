@@ -155,9 +155,9 @@ int main(int argc, char* argv[]) {
             next_factor();
         }
 
-        r32 update(milliseconds delta, r32 value) {
+        r32 update(delta dt, r32 value) {
 
-            auto next = factor * to_r32(to_sec(delta));
+            auto next = factor * dt;
 
             if (add)
                 value += next;
@@ -210,17 +210,17 @@ int main(int argc, char* argv[]) {
     auto a_dimmer = color_dimmer;
     a_dimmer.min = 0.2f;
 
-    app.on_update = [&](milliseconds delta) {
+    app.on_update = [&](delta dt) {
 
         if (!auto_play || !lamp_pipeline->is_active())
             return true;
         
-        lamp_depth = depth_dimmer.update(delta, lamp_depth);
+        lamp_depth = depth_dimmer.update(dt, lamp_depth);
 
-        lamp_color.r = r_dimmer.update(delta, lamp_color.r);
-        lamp_color.g = g_dimmer.update(delta, lamp_color.g);
-        lamp_color.b = b_dimmer.update(delta, lamp_color.b);
-        lamp_color.a = a_dimmer.update(delta, lamp_color.a);
+        lamp_color.r = r_dimmer.update(dt, lamp_color.r);
+        lamp_color.g = g_dimmer.update(dt, lamp_color.g);
+        lamp_color.b = b_dimmer.update(dt, lamp_color.b);
+        lamp_color.a = a_dimmer.update(dt, lamp_color.a);
 
         return true;
     };

@@ -249,14 +249,14 @@ int main(int argc, char* argv[]) {
 
     gamepad pad(gamepad_id::_1);
 
-    app.on_update = [&](milliseconds delta) {
+    app.on_update = [&](delta dt) {
 
         if (app.camera.is_active()) {
 
-            app.camera.update_view(delta, app.input.get_mouse_position());
+            app.camera.update_view(dt, app.input.get_mouse_position());
 
             if (pad.ready() && pad.update())
-                app.camera.update_view(delta, pad);
+                app.camera.update_view(dt, pad);
         }
 
         if (update_spawn_matrix) {
