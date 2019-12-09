@@ -4,7 +4,7 @@
 
 cmake_minimum_required(VERSION 3.12)
 
-project(liblava-demo VERSION 0.4.4 LANGUAGES C CXX)
+project(liblava-demo VERSION 0.4.5 LANGUAGES C CXX)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/liblava ${CMAKE_CURRENT_BINARY_DIR}/liblava)
 
